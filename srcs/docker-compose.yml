@@ -1,0 +1,168 @@
+version: "3.9"
+services:
+        rsyslog:
+                container_name: rsyslog
+                image: rsyslog:v1.0
+                tty: true
+                build: requirements/rsyslog
+                ports:
+                  - 514:514
+                networks:
+                        - inception
+                restart: on-failure
+                volumes:
+                        - rsys-data:/var/log/rsyslog
+                logging:
+                        driver: syslog
+        mariadb:
+                container_name: mariadb
+                image: mariadb:v1.0
+                tty: true
+                build: requirements/mariadb
+                expose:
+                        - "3306"
+                volumes:
+                        - "db:/var/lib/mysql"
+                networks:
+                        - inception
+                restart: on-failure
+                environment:
+                        - SQL_ROOT_PSW=$SQL_ROOT_PSW
+                        - SQL_USR=$SQL_USR
+                        - SQL_PSW=$SQL_PSW
+                logging:
+                        driver: syslog
+                        options:
+                                syslog-address: "tcp://localhost:514"
+                depends_on:
+                  - "rsyslog"
+        wordpress:
+               container_name: wordpress
+               image: wordpress:v1.0
+               tty: true
+               build: requirements/wordpress
+               expose:
+                       - "9000"
+               volumes:
+                       - wp-data:/var/www/html
+               networks:
+                       - inception
+               restart: on-failure
+               environment:
+                       - SQL_USR=$SQL_USR
+                       - SQL_PSW=$SQL_PSW
+                       - WP_USR=$WP_USR
+                       - WP_USR_PSW=$WP_USR_PSW
+                       - WP_ADM=$WP_ADM
+                       - WP_ADM_PSW=$WP_ADM_PSW
+                       - DOCKERIZE_VERSION=$DOCKERIZE_VERSION
+                       - REDIS_PSW=$REDIS_PSW
+               depends_on:
+                  - "mariadb"
+                  - "redis"
+                  - "rsyslog"
+               logging:
+                       driver: syslog
+                       options:
+                               syslog-address: "tcp://localhost:514"
+        nginx:
+               container_name: nginx
+               image: nginx:v1.0
+               tty: true
+               build: requirements/nginx
+               ports:
+                       - 443:443
+               volumes:
+                       - wp-data:/var/www/html
+               networks:
+                       - inception
+               restart: on-failure
+               depends_on:
+                 - "mariadb"
+                 - "wordpress"
+                 - "rsyslog"
+               logging:
+                       driver: syslog
+                       options:
+                               syslog-address: "tcp://localhost:514"
+        redis:
+               container_name: redis
+               image: redis:v1.0
+               tty: true
+               build: requirements/redis
+               environment:
+                       - REDIS_PSW=$REDIS_PSW
+               expose:
+                       - "6379"
+               networks:
+                       - inception
+               restart: on-failure
+               depends_on:
+                   - "rsyslog"
+               logging:
+                       driver: syslog
+                       options:
+                               syslog-address: "tcp://localhost:514"
+        ftp:
+                container_name: ftp
+                image: ftp:v1.0
+                tty: true
+                build: requirements/ftp
+                ports:
+                  - 20:20
+                  - 21:21
+                networks:
+                        - inception
+                volumes:
+                        - wp-data:/var/www/html
+                environment:
+                       - USR_PSW=$FTP_PSW
+                restart: on-failure
+                logging:
+                     driver: syslog
+        website:
+                container_name: website
+                image: website:v1.0
+                tty: true
+                build: requirements/website
+                ports:
+                        - "9001:9001"
+                networks:
+                        - inception
+                volumes:
+                        - wp-data:/var/www/html
+                restart: on-failure
+                logging:
+                        driver: syslog
+                        options:
+                                syslog-address: "tcp://localhost:514"
+                depends_on:
+                  - "rsyslog"
+        adminer:
+                container_name: adminer
+                image: adminer:v1.0
+                tty: true
+                build: requirements/adminer
+                expose:
+                        - "9002"
+                networks:
+                        - inception
+                volumes:
+                        - wp-data:/var/www/html
+                restart: on-failure
+                depends_on:
+                  - "mariadb"
+                  - "rsyslog"
+                logging:
+                        driver: syslog
+                        options:
+                                syslog-address: "tcp://localhost:514"
+volumes:
+        wp-data:
+                name: wordpress
+        db:
+                name: mariadb
+        rsys-data:
+                name: rsyslog
+networks:
+        inception:

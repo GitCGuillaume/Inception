@@ -1,0 +1,30 @@
+server {
+	listen 443 ssl;
+	listen [::]:443 ssl;
+	server_name gchopin.42.fr;
+	ssl_protocols TLSv1.3;
+	ssl_certificate certificate.crt;
+	ssl_certificate_key certificate.key;
+	root /var/www/html/wordpress;
+	error_log /var/log/nginx/error.log;
+	index index.php;
+	location / {
+		#autoindex on; #directory listing
+		# First attempt to serve request as file, then
+		# as directory, then fall back to displaying a 404.
+		try_files $uri $uri/ =404;
+	}
+	location ~ [^/]\.php(/|$) {
+		try_files $uri $uri/ =404;
+		include fastcgi_params;
+		fastcgi_index index.php;
+		fastcgi_pass wordpress:9000;
+		fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+	}
+	location ~ /adminer {
+		include fastcgi_params;
+		fastcgi_index index.php;
+		fastcgi_pass adminer:9002;
+		fastcgi_param SCRIPT_FILENAME /var/www/html/adminer/index.php;
+	}
+}
